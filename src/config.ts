@@ -96,6 +96,23 @@ function assertValidConfig(
   const problems: string[] = [];
   if (!isObject(value.voice)) {
     problems.push("voice");
+  } else {
+    // `rate`/`volume` must be finite numbers — a non-number (or NaN/Infinity)
+    // would otherwise reach the Windows speaker as `$speak.Rate = NaN;`, an
+    // invalid script that fails speech silently. `volume: 0` is valid, so test
+    // finiteness, not truthiness.
+    for (const key of ["rate", "volume"] as const) {
+      if (typeof value.voice[key] !== "number" || !Number.isFinite(value.voice[key])) {
+        problems.push(`voice.${key}`);
+      }
+    }
+    // Voice names are an OS voice identifier or null for the system default.
+    for (const key of ["macos", "windows"] as const) {
+      const name = value.voice[key];
+      if (name !== null && typeof name !== "string") {
+        problems.push(`voice.${key}`);
+      }
+    }
   }
   if (!isObject(value.messages)) {
     problems.push("messages");

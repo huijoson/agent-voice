@@ -17,12 +17,27 @@ function makeFakeRunner(): { runner: CommandRunner; calls: Array<{ command: stri
 }
 
 describe("buildSayArgs", () => {
-  it("returns just the text when no macOS voice is set", () => {
-    expect(buildSayArgs("hello world", voiceNoMac)).toEqual(["hello world"]);
+  it("ends options with -- before the text when no macOS voice is set", () => {
+    expect(buildSayArgs("hello world", voiceNoMac)).toEqual(["--", "hello world"]);
   });
 
-  it("prepends -v <voice> when a macOS voice is set", () => {
-    expect(buildSayArgs("hello world", voiceAlex)).toEqual(["-v", "Alex", "hello world"]);
+  it("prepends -v <voice> then -- before the text when a macOS voice is set", () => {
+    expect(buildSayArgs("hello world", voiceAlex)).toEqual([
+      "-v",
+      "Alex",
+      "--",
+      "hello world",
+    ]);
+  });
+
+  // Without the -- end-of-options marker, `say` would parse a dash-leading
+  // message as a flag (e.g. "-rf ..." -> unknown option) instead of speaking it.
+  it("speaks a message that starts with a dash literally (-- guards it)", () => {
+    expect(buildSayArgs("-rf my files", voiceNoMac)).toEqual(["--", "-rf my files"]);
+    const withVoice = buildSayArgs("-v is tricky", voiceAlex);
+    // The message must be the final arg, immediately preceded by --.
+    expect(withVoice[withVoice.length - 1]).toBe("-v is tricky");
+    expect(withVoice[withVoice.length - 2]).toBe("--");
   });
 });
 

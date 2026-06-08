@@ -199,6 +199,53 @@ describe("loadConfig validation", () => {
     );
     await expect(loadConfig(homeDir)).rejects.toThrow(/messages\.done|done/i);
   });
+
+  // A non-numeric voice.rate would otherwise flow through mapRateToSapi as NaN
+  // and produce `$speak.Rate = NaN;` — an invalid PowerShell script that fails
+  // speech silently. Reject it at load time, naming the field.
+  it("throws naming voice.rate when rate is not a number", async () => {
+    await ensureConfigDir(homeDir);
+    const broken = {
+      ...DEFAULT_CONFIG,
+      voice: { ...DEFAULT_CONFIG.voice, rate: "fast" },
+    };
+    await fs.writeFile(getConfigPath(homeDir), JSON.stringify(broken), "utf8");
+    const promise = loadConfig(homeDir);
+    await expect(promise).rejects.toThrow(/voice\.rate/);
+    await expect(promise).rejects.toThrow(getConfigPath(homeDir));
+  });
+
+  it("throws naming voice.volume when volume is null or a string", async () => {
+    await ensureConfigDir(homeDir);
+    for (const bad of [null, "loud"]) {
+      const broken = {
+        ...DEFAULT_CONFIG,
+        voice: { ...DEFAULT_CONFIG.voice, volume: bad },
+      };
+      await fs.writeFile(getConfigPath(homeDir), JSON.stringify(broken), "utf8");
+      await expect(loadConfig(homeDir)).rejects.toThrow(/voice\.volume/);
+    }
+  });
+
+  it("throws naming voice.macos when the voice name is not a string or null", async () => {
+    await ensureConfigDir(homeDir);
+    const broken = {
+      ...DEFAULT_CONFIG,
+      voice: { ...DEFAULT_CONFIG.voice, macos: 42 },
+    };
+    await fs.writeFile(getConfigPath(homeDir), JSON.stringify(broken), "utf8");
+    await expect(loadConfig(homeDir)).rejects.toThrow(/voice\.macos/);
+  });
+
+  it("accepts a valid voice config, including volume 0 and a string voice name", async () => {
+    await ensureConfigDir(homeDir);
+    const ok: Config = {
+      ...DEFAULT_CONFIG,
+      voice: { macos: null, windows: "Zira", rate: 1, volume: 0 },
+    };
+    await saveConfig(ok, homeDir);
+    await expect(loadConfig(homeDir)).resolves.toEqual(ok);
+  });
 });
 
 describe("initConfig", () => {

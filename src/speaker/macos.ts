@@ -12,14 +12,13 @@ import { defaultRunner } from "../utils/shell.js";
  * implemented in v1. `VoiceConfig.rate` is a best-effort multiplier and mapping
  * it to words-per-minute is deferred to a later release.
  *
- * Known limitation (v1): text is a discrete spawn argument (no shell, so no
- * injection risk), but a message that *starts with* `-` would be parsed by
- * `say` as a flag. The text comes from the user's own config, so this is
- * self-inflicted and low-risk; a future release can add a `--` end-of-options
- * marker once verified against `say` on macOS.
+ * A `--` end-of-options marker is placed immediately before the text so a
+ * message that *starts with* `-` (e.g. "-rf ...") is spoken literally rather
+ * than parsed by `say` as a flag. Combined with discrete-argument spawning
+ * (no shell), the message is treated strictly as data.
  */
 export function buildSayArgs(text: string, voice: VoiceConfig): string[] {
-  return voice.macos ? ["-v", voice.macos, text] : [text];
+  return voice.macos ? ["-v", voice.macos, "--", text] : ["--", text];
 }
 
 /**

@@ -20,9 +20,11 @@ import { defaultRunner, escapePowerShellSingleQuoted } from "../utils/shell.js";
  *    seconds. In Windows PowerShell 5.1 `Start-Sleep -Seconds` is `Int32`, so a
  *    fractional duration would be truncated and a sub-second cue could be cut
  *    off entirely.
- *  - If the duration never becomes known (e.g. the file exists but is not a
- *    playable audio format, so `MediaFailed` would fire), we throw so the runner
- *    rejects with a non-zero exit instead of pretending to succeed silently.
+ *  - We subscribe to `MediaFailed` before `Open` and break the probe loop the
+ *    moment it fires, throwing promptly instead of spinning until the 10s
+ *    duration-probe timeout. The bounded timeout remains as a backstop for the
+ *    rare "duration never resolves and MediaFailed never fires" case. Either way
+ *    the runner rejects with a non-zero exit instead of pretending to succeed.
  *
  * NOTE: `[System.Uri]::new(path)` preserves `%XX` literally on .NET Framework
  * (Windows PowerShell). On PowerShell 7 (`pwsh`/.NET) it would percent-decode —
@@ -32,10 +34,24 @@ export function buildPlayerScript(filePath: string): string {
   const escaped = escapePowerShellSingleQuoted(filePath);
   return [
     "Add-Type -AssemblyName presentationCore;",
+    "Add-Type -AssemblyName WindowsBase;",
     "$player = New-Object System.Windows.Media.MediaPlayer;",
+    // Pump the dispatcher while the media opens. WPF delivers MediaOpened /
+    // MediaFailed only while a message loop runs, so a bare Start-Sleep poll
+    // never sees a failure and spins until the timeout (verified on Windows).
+    // PushFrame runs the loop; MediaOpened/MediaFailed/the timeout each stop it.
+    "$frame = New-Object System.Windows.Threading.DispatcherFrame;",
+    "$err = $null;",
+    "$player.add_MediaOpened({ $frame.Continue = $false });",
+    "$player.add_MediaFailed({ param($s, $e) $script:err = $e.ErrorException.Message; $frame.Continue = $false });",
     `$player.Open([System.Uri]::new('${escaped}'));`,
-    "$sw = [System.Diagnostics.Stopwatch]::StartNew();",
-    "while (-not $player.NaturalDuration.HasTimeSpan -and $sw.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 50 };",
+    "$timer = New-Object System.Windows.Threading.DispatcherTimer;",
+    "$timer.Interval = [TimeSpan]::FromSeconds(10);",
+    "$timer.add_Tick({ $frame.Continue = $false });",
+    "$timer.Start();",
+    "[System.Windows.Threading.Dispatcher]::PushFrame($frame);",
+    "$timer.Stop();",
+    "if ($err) { $player.Close(); throw \"agent-voice: media failed to load ($err); the file may be corrupt or not a playable audio format.\" };",
     "if (-not $player.NaturalDuration.HasTimeSpan) { $player.Close(); throw 'agent-voice: could not load audio (unknown duration); the file may not be a playable format.' };",
     "$player.Play();",
     "Start-Sleep -Milliseconds ([int]$player.NaturalDuration.TimeSpan.TotalMilliseconds + 300);",
