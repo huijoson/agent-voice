@@ -14,6 +14,19 @@ import { defaultRunner, escapePowerShellSingleQuoted } from "../utils/shell.js";
  * length before closing. MediaPlayer requires an STA thread; the player is run
  * via `powershell` (Windows PowerShell), which is STA by default, and we also
  * pass `-STA` explicitly.
+ *
+ * Two correctness details:
+ *  - We sleep in MILLISECONDS (`TotalMilliseconds` + a small buffer), not whole
+ *    seconds. In Windows PowerShell 5.1 `Start-Sleep -Seconds` is `Int32`, so a
+ *    fractional duration would be truncated and a sub-second cue could be cut
+ *    off entirely.
+ *  - If the duration never becomes known (e.g. the file exists but is not a
+ *    playable audio format, so `MediaFailed` would fire), we throw so the runner
+ *    rejects with a non-zero exit instead of pretending to succeed silently.
+ *
+ * NOTE: `[System.Uri]::new(path)` preserves `%XX` literally on .NET Framework
+ * (Windows PowerShell). On PowerShell 7 (`pwsh`/.NET) it would percent-decode —
+ * keep using `powershell` if paths may contain `%`.
  */
 export function buildPlayerScript(filePath: string): string {
   const escaped = escapePowerShellSingleQuoted(filePath);
@@ -23,8 +36,9 @@ export function buildPlayerScript(filePath: string): string {
     `$player.Open([System.Uri]::new('${escaped}'));`,
     "$sw = [System.Diagnostics.Stopwatch]::StartNew();",
     "while (-not $player.NaturalDuration.HasTimeSpan -and $sw.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 50 };",
+    "if (-not $player.NaturalDuration.HasTimeSpan) { $player.Close(); throw 'agent-voice: could not load audio (unknown duration); the file may not be a playable format.' };",
     "$player.Play();",
-    "if ($player.NaturalDuration.HasTimeSpan) { Start-Sleep -Seconds $player.NaturalDuration.TimeSpan.TotalSeconds } else { Start-Sleep -Seconds 5 };",
+    "Start-Sleep -Milliseconds ([int]$player.NaturalDuration.TimeSpan.TotalMilliseconds + 300);",
     "$player.Stop();",
     "$player.Close();",
   ].join(" ");

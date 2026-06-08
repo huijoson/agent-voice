@@ -36,7 +36,9 @@
 ## 5. Verification & review
 
 - [x] 5.1 `npm run typecheck`, `npm run build`, `npm test`, `npm run coverage` green
-- [ ] 5.2 Independent review: `codex review` + superpowers; triage + fix with tests
+- [x] 5.2 Independent review: `codex review` + superpowers; triage + fix with tests
+      (both flagged Windows Start-Sleep -Seconds truncation -> fixed to ms + buffer;
+      also: fail on unknown duration, path.resolve for cross-platform, -STA test)
 - [x] 5.3 `openspec validate add-sound-playback --strict` passes
 - [ ] 5.4 Manual real-audio test: set `sounds.done` to the m4a and play it on
       Windows (after asking the user) — not run in CI

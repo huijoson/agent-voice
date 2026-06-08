@@ -9,6 +9,7 @@
  */
 
 import fs from "node:fs/promises";
+import path from "node:path";
 import { Command } from "commander";
 import { DEFAULT_CONFIG, initConfig, loadConfig } from "./config.js";
 import { getSpeaker } from "./speaker/index.js";
@@ -113,8 +114,12 @@ export async function runSpeak(
   }
 
   // Sound takes precedence over TTS: if this event has a sound file, play it.
-  const soundPath = config.sounds?.[event] ?? null;
-  if (soundPath) {
+  const configuredSound = config.sounds?.[event] ?? null;
+  if (configuredSound) {
+    // Resolve to an absolute path so playback behaves the same cross-platform
+    // (the Windows player requires an absolute URI) and a leading-dash name
+    // can't be read as a flag.
+    const soundPath = path.resolve(configuredSound);
     if (!(await pathExists(soundPath))) {
       io.error(`Sound file for "${event}" not found: ${soundPath}`);
       return 1;
@@ -188,13 +193,15 @@ export async function runPlay(
     io.error('No file provided. Usage: agent-voice play "<file>".');
     return 1;
   }
-  if (!(await pathExists(filePath))) {
-    io.error(`Audio file not found: ${filePath}`);
+  // Resolve to absolute for consistent cross-platform playback.
+  const resolved = path.resolve(filePath);
+  if (!(await pathExists(resolved))) {
+    io.error(`Audio file not found: ${resolved}`);
     return 1;
   }
 
   try {
-    await deps.getPlayer().play(filePath);
+    await deps.getPlayer().play(resolved);
     return 0;
   } catch (err) {
     io.error(messageOf(err));

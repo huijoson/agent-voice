@@ -5,6 +5,9 @@ import { defaultRunner } from "../utils/shell.js";
  * Build the argument vector for the macOS `afplay` command. The path is the only
  * argument and is passed verbatim — `afplay` is spawned without a shell, so no
  * escaping is required. `afplay` blocks until playback finishes.
+ *
+ * Callers pass absolute paths (the CLI resolves them with `path.resolve`), so a
+ * leading `-` cannot be misread by `afplay` as a flag.
  */
 export function buildAfplayArgs(filePath: string): string[] {
   return [filePath];

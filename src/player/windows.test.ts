@@ -26,12 +26,28 @@ describe("buildPlayerScript", () => {
     const script = buildPlayerScript("C:\\it's\\cue.m4a");
     expect(script).toContain("it''s");
   });
+
+  it("waits for the clip length in milliseconds (no fractional-second truncation)", () => {
+    const script = buildPlayerScript("C:\\x.m4a");
+    expect(script).toContain("TotalMilliseconds");
+    expect(script).toMatch(/Start-Sleep -Milliseconds/);
+    // Must NOT pass a fractional Double to -Seconds (Int32 in WinPS 5.1 truncates).
+    expect(script).not.toMatch(/Start-Sleep -Seconds \$player/);
+  });
+
+  it("fails (throws) when the media duration cannot be determined", () => {
+    const script = buildPlayerScript("C:\\x.m4a");
+    expect(script).toContain("HasTimeSpan");
+    expect(script).toContain("throw");
+  });
 });
 
 describe("buildPowerShellArgs", () => {
-  it("passes the script as the final -Command argument", () => {
+  it("passes the script as the final -Command argument, in STA mode", () => {
     const args = buildPowerShellArgs("SCRIPT");
     expect(args).toContain("-Command");
+    // MediaPlayer requires STA.
+    expect(args).toContain("-STA");
     expect(args.at(-1)).toBe("SCRIPT");
   });
 });
