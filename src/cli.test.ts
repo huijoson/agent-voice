@@ -106,6 +106,19 @@ describe("runInit", () => {
     expect((await loadConfig(tmpHome)).messages.done).toBe("CUSTOM");
     expect(h.logs.join("\n")).toMatch(/keep/i);
   });
+
+  it("returns non-zero with a clean error when init fails", async () => {
+    const h = makeHarness(tmpHome, {
+      initConfig: async () => {
+        throw new Error("disk full");
+      },
+    });
+
+    const code = await runInit({}, h.deps);
+
+    expect(code).not.toBe(0);
+    expect(h.errors.join("\n")).toMatch(/disk full/);
+  });
 });
 
 describe("runSpeak", () => {
@@ -138,6 +151,26 @@ describe("runSpeak", () => {
 
     expect(code).not.toBe(0);
     expect(h.errors.join("\n")).toMatch(/agent-voice init/);
+    expect(h.speakerCalls).toHaveLength(0);
+  });
+
+  it("exits non-zero with a clean message on a structurally-invalid config", async () => {
+    // Hand-edited config with messages.done removed.
+    const broken = {
+      ...DEFAULT_CONFIG,
+      messages: {
+        needInput: "x",
+        permission: "y",
+        error: "z",
+      },
+    } as unknown as Config;
+    await saveConfig(broken, tmpHome);
+
+    const h = makeHarness(tmpHome);
+    const code = await runSpeak({ event: "done" }, h.deps);
+
+    expect(code).not.toBe(0);
+    expect(h.errors.length).toBeGreaterThan(0);
     expect(h.speakerCalls).toHaveLength(0);
   });
 });

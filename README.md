@@ -113,6 +113,26 @@ Speak arbitrary text directly (does not use `messages`):
 agent-voice say "這是一段測試文字"
 ```
 
+### Manual audio smoke test
+
+The automated Vitest suite never produces audio (it mocks the command runner), so
+actually hearing sound is a **manual** check, not part of CI. After `npm run build`:
+
+```bash
+# macOS — should speak aloud via `say`
+node dist/index.js say "agent voice smoke test"
+
+# Windows (PowerShell) — should speak aloud via System.Speech
+node dist/index.js say "agent voice smoke test"
+```
+
+Then verify event playback end to end:
+
+```bash
+agent-voice init
+agent-voice speak --event done   # should read your configured "done" message
+```
+
 ## 7. Install the Claude Code hook
 
 ```bash
@@ -157,6 +177,9 @@ interface is in place (`src/hooks/codex.ts`) and reserved for a future release.
   message text is embedded as data, never executed.
 - `rate` is best-effort and differs per OS, so the same value won't sound
   identical on both platforms.
+- **macOS, message starting with `-`:** text is passed as a discrete argument
+  (no shell, no injection risk), but a message that *starts with* a dash could be
+  read by `say` as a flag. Avoid leading dashes in macOS messages for now.
 
 ## 9. Security
 

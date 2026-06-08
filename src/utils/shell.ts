@@ -38,14 +38,16 @@ export const defaultRunner: CommandRunner = (command, args) =>
     });
 
     child.on("error", reject);
-    child.on("close", (code) => {
-      const exitCode = code ?? 0;
-      if (exitCode === 0) {
-        resolve({ code: exitCode, stdout, stderr });
+    child.on("close", (code, signal) => {
+      // A signal-terminated process reports code === null (with a signal name);
+      // that is a failure, not success, so only a literal 0 resolves.
+      if (code === 0) {
+        resolve({ code: 0, stdout, stderr });
       } else {
+        const reason = code === null ? `signal ${signal}` : `exit ${code}`;
         reject(
           new Error(
-            `Command failed (exit ${exitCode}): ${command} ${args.join(" ")}\n${stderr}`.trim(),
+            `Command failed (${reason}): ${command} ${args.join(" ")}\n${stderr}`.trim(),
           ),
         );
       }

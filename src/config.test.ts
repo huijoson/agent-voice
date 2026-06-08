@@ -141,6 +141,32 @@ describe("loadConfig errors", () => {
   });
 });
 
+describe("loadConfig validation", () => {
+  it("throws an actionable error when required fields are missing", async () => {
+    await ensureConfigDir(homeDir);
+    await fs.writeFile(
+      getConfigPath(homeDir),
+      JSON.stringify({ engine: "system" }),
+      "utf8",
+    );
+    await expect(loadConfig(homeDir)).rejects.toThrow(/agent-voice init/);
+  });
+
+  it("throws when a single message entry is missing", async () => {
+    await ensureConfigDir(homeDir);
+    const broken = {
+      ...DEFAULT_CONFIG,
+      messages: { needInput: "x", permission: "y", error: "z" },
+    };
+    await fs.writeFile(
+      getConfigPath(homeDir),
+      JSON.stringify(broken),
+      "utf8",
+    );
+    await expect(loadConfig(homeDir)).rejects.toThrow(/messages\.done|done/i);
+  });
+});
+
 describe("initConfig", () => {
   it("fresh creates dir + file and returns created:true", async () => {
     const result = await initConfig({ homeDir });

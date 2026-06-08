@@ -48,25 +48,30 @@ export async function runInit(
   deps: CliDeps,
 ): Promise<number> {
   const { io, homeDir } = deps;
-  const result = await deps.initConfig({ force: opts.force, homeDir });
+  try {
+    const result = await deps.initConfig({ force: opts.force, homeDir });
 
-  if (result.created) {
-    io.log(`Created config at ${result.path}`);
+    if (result.created) {
+      io.log(`Created config at ${result.path}`);
+      return 0;
+    }
+
+    // The file already existed and force was not set — ask before overwriting.
+    const overwrite = await io.confirm(
+      `Config already exists at ${result.path}. Overwrite?`,
+    );
+    if (!overwrite) {
+      io.log("Keeping existing config.");
+      return 0;
+    }
+
+    const forced = await deps.initConfig({ force: true, homeDir });
+    io.log(`Overwrote config at ${forced.path}`);
     return 0;
+  } catch (err) {
+    io.error(messageOf(err));
+    return 1;
   }
-
-  // The file already existed and force was not set — ask before overwriting.
-  const overwrite = await io.confirm(
-    `Config already exists at ${result.path}. Overwrite?`,
-  );
-  if (!overwrite) {
-    io.log("Keeping existing config.");
-    return 0;
-  }
-
-  const forced = await deps.initConfig({ force: true, homeDir });
-  io.log(`Overwrote config at ${forced.path}`);
-  return 0;
 }
 
 /** `agent-voice speak --event <event>` — speak a configured message. */
@@ -76,6 +81,16 @@ export async function runSpeak(
 ): Promise<number> {
   const { io, homeDir } = deps;
 
+  // Validate the event first (it doesn't need a config), so an unknown event is
+  // reported precisely even when no config exists yet.
+  const event = opts.event as EventName;
+  if (!VALID_EVENTS.includes(event)) {
+    io.error(
+      `Unknown event "${opts.event}". Valid events: ${VALID_EVENTS.join(", ")}.`,
+    );
+    return 1;
+  }
+
   let config: Config;
   try {
     config = await deps.loadConfig(homeDir);
@@ -84,14 +99,15 @@ export async function runSpeak(
     return 1;
   }
 
-  if (!VALID_EVENTS.includes(opts.event as EventName)) {
+  // Defense in depth: loadConfig validates structure, but guard the lookup so a
+  // missing message can never reach the speaker as `undefined`.
+  const text = config.messages[event];
+  if (typeof text !== "string") {
     io.error(
-      `Unknown event "${opts.event}". Valid events: ${VALID_EVENTS.join(", ")}.`,
+      `Config has no message for event "${event}". Re-run \`agent-voice init\` or add messages.${event}.`,
     );
     return 1;
   }
-  const event = opts.event as EventName;
-  const text = config.messages[event];
 
   try {
     await deps.getSpeaker().speak(text, config.voice);

@@ -57,12 +57,59 @@ export async function loadConfig(homeDir?: string): Promise<Config> {
     throw err;
   }
 
+  let parsed: unknown;
   try {
-    return JSON.parse(raw) as Config;
+    parsed = JSON.parse(raw);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     throw new Error(
       `Could not parse the config file at ${configPath}: ${detail}`,
+    );
+  }
+
+  assertValidConfig(parsed, configPath);
+  return parsed;
+}
+
+/** True for a non-null, non-array object. */
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Validate that a parsed value has the required structure. A structurally
+ * invalid (but valid-JSON) config — e.g. one with `messages.done` removed by
+ * hand — must fail here with an actionable error, rather than surfacing later as
+ * a cryptic `undefined` when a command reads `config.messages[event]`.
+ */
+function assertValidConfig(
+  value: unknown,
+  configPath: string,
+): asserts value is Config {
+  if (!isObject(value)) {
+    throw new Error(
+      `Config at ${configPath} must be a JSON object. Re-run \`agent-voice init\` or fix the file.`,
+    );
+  }
+
+  const problems: string[] = [];
+  if (!isObject(value.voice)) {
+    problems.push("voice");
+  }
+  if (!isObject(value.messages)) {
+    problems.push("messages");
+  } else {
+    for (const key of ["done", "needInput", "permission", "error"]) {
+      if (typeof value.messages[key] !== "string") {
+        problems.push(`messages.${key}`);
+      }
+    }
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      `Config at ${configPath} is missing or has invalid required field(s): ` +
+        `${problems.join(", ")}. Re-run \`agent-voice init\` or fix the file.`,
     );
   }
 }

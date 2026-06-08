@@ -81,8 +81,11 @@
 
 - [x] 9.1 `npm run typecheck`, `npm run build`, `npm test`, `npm run coverage` all
       green; verify `dist/index.js` has a shebang
-- [ ] 9.2 Independent review: `codex review` / `codex exec` + superpowers code
+- [x] 9.2 Independent review: `codex review` / `codex exec` + superpowers code
       review; triage and fix real findings with tests
-- [ ] 9.3 Document the manual audio smoke test (macOS `say`, Windows SAPI) — not
-      run in CI
-- [ ] 9.4 `openspec validate add-agent-voice-cli --strict` passes
+      (both flagged: claude.ts non-array clobber + cli.ts undefined-message;
+      also fixed: signal-exit handling, config validation, friendly parse error,
+      runInit error handling, event-validation order. 8 new tests.)
+- [x] 9.3 Document the manual audio smoke test (macOS `say`, Windows SAPI) — not
+      run in CI (README "Manual audio smoke test")
+- [x] 9.4 `openspec validate add-agent-voice-cli --strict` passes

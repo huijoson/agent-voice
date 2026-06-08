@@ -67,6 +67,11 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
+/** True for a non-null, non-array object. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * Ensure an event in `hooks` contains a command-hook for `command`.
  * Returns true if an entry was appended, false if it already existed.
@@ -109,55 +114,90 @@ export async function installClaudeHook(
   await fs.mkdir(settingsDir, { recursive: true });
 
   const exists = await fileExists(settingsPath);
-
+  let originalText: string | null = null;
   let settings: Record<string, unknown>;
-  let backupPath: string | null = null;
   let created: boolean;
 
   if (exists) {
-    const originalText = await fs.readFile(settingsPath, "utf8");
-    const parsed = JSON.parse(originalText);
-    settings =
-      parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? (parsed as Record<string, unknown>)
-        : {};
-
-    // Back up the ORIGINAL bytes before we ever write.
-    backupPath = path.join(
-      settingsDir,
-      `settings.json.bak-${formatBackupTimestamp(now)}`,
-    );
-    await fs.writeFile(backupPath, originalText, "utf8");
-    log?.(`Backed up existing settings to ${backupPath}`);
+    originalText = await fs.readFile(settingsPath, "utf8");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(originalText);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `Existing Claude settings at ${settingsPath} is not valid JSON; ` +
+          `fix or move it before installing (${detail}).`,
+      );
+    }
+    // Never overwrite a settings file whose top level isn't a JSON object.
+    if (!isPlainObject(parsed)) {
+      throw new Error(
+        `Existing Claude settings at ${settingsPath} is not a JSON object; ` +
+          `refusing to overwrite it.`,
+      );
+    }
+    settings = parsed;
     created = false;
   } else {
     settings = {};
     created = true;
   }
 
-  if (
-    !settings.hooks ||
-    typeof settings.hooks !== "object" ||
-    Array.isArray(settings.hooks)
-  ) {
+  // Ensure a hooks object WITHOUT clobbering a foreign shape.
+  if (settings.hooks === undefined) {
     settings.hooks = {};
+  } else if (!isPlainObject(settings.hooks)) {
+    throw new Error(
+      `Existing "hooks" in ${settingsPath} is not an object; refusing to ` +
+        `overwrite it. Fix it manually before installing.`,
+    );
   }
   const hooks = settings.hooks as Record<string, unknown>;
 
   let changed = false;
+  const skipped: string[] = [];
   for (const [event, command] of Object.entries(TARGETS)) {
+    const existing = hooks[event];
+    if (existing !== undefined && !Array.isArray(existing)) {
+      // A foreign (non-array) value for this event — preserve it untouched
+      // rather than overwrite the user's configuration.
+      skipped.push(event);
+      continue;
+    }
     if (ensureEventHook(hooks, event, command)) {
       changed = true;
     }
   }
 
-  const output = JSON.stringify(settings, null, 2) + "\n";
-  await fs.writeFile(settingsPath, output, "utf8");
-  log?.(
-    changed
-      ? `Updated Claude hooks in ${settingsPath}`
-      : `Claude hooks already present in ${settingsPath}`,
-  );
+  if (skipped.length > 0) {
+    log?.(
+      `Left existing non-array hooks untouched: ${skipped.join(", ")}. ` +
+        `Add agent-voice to them manually if desired.`,
+    );
+  }
+
+  // Back up and write only when there is an actual change, so re-runs and
+  // no-op installs neither churn the user's file nor pile up backups.
+  let backupPath: string | null = null;
+  if (changed) {
+    if (exists && originalText !== null) {
+      backupPath = path.join(
+        settingsDir,
+        `settings.json.bak-${formatBackupTimestamp(now)}`,
+      );
+      await fs.writeFile(backupPath, originalText, "utf8");
+      log?.(`Backed up existing settings to ${backupPath}`);
+    }
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify(settings, null, 2) + "\n",
+      "utf8",
+    );
+    log?.(`Updated Claude hooks in ${settingsPath}`);
+  } else {
+    log?.(`Claude hooks already present in ${settingsPath}; no changes made.`);
+  }
 
   return { settingsPath, backupPath, created, changed };
 }

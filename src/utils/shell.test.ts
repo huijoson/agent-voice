@@ -93,6 +93,18 @@ describe("defaultRunner", () => {
     await expect(promise).rejects.toThrow(/3/);
   });
 
+  it("rejects when the process is killed by a signal (code null)", async () => {
+    const child = fakeChild();
+    vi.mocked(spawn).mockReturnValue(child as never);
+
+    const promise = defaultRunner("cmd", []);
+    // Node passes code === null and a signal name when a process is terminated
+    // by a signal. This must NOT be treated as success.
+    child.emit("close", null, "SIGTERM");
+
+    await expect(promise).rejects.toThrow(/SIGTERM/);
+  });
+
   it("rejects when the process fails to spawn", async () => {
     const child = fakeChild();
     vi.mocked(spawn).mockReturnValue(child as never);
