@@ -12,6 +12,7 @@ import { stdin, stdout } from "node:process";
 import { buildProgram, type CliDeps, type CliIO } from "./cli.js";
 import { DEFAULT_CONFIG, initConfig, loadConfig } from "./config.js";
 import { getSpeaker } from "./speaker/index.js";
+import { getPlayer } from "./player/index.js";
 import { installClaudeHook } from "./hooks/claude.js";
 import { installCodexHook } from "./hooks/codex.js";
 
@@ -34,6 +35,7 @@ const deps: CliDeps = {
   initConfig,
   loadConfig,
   getSpeaker,
+  getPlayer,
   installClaudeHook,
   installCodexHook,
   defaultVoice: DEFAULT_CONFIG.voice,

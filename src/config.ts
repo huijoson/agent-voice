@@ -22,6 +22,7 @@ export const DEFAULT_CONFIG: Config = {
     permission: "需要你的授權，請回來確認。",
     error: "執行發生錯誤，請檢查終端機。",
   },
+  sounds: { done: null, needInput: null, permission: null, error: null },
   notification: { enabled: false },
 };
 
@@ -102,6 +103,19 @@ function assertValidConfig(
     for (const key of ["done", "needInput", "permission", "error"]) {
       if (typeof value.messages[key] !== "string") {
         problems.push(`messages.${key}`);
+      }
+    }
+  }
+
+  // `sounds` is optional, but when present each value must be a string or null.
+  if (value.sounds !== undefined) {
+    if (!isObject(value.sounds)) {
+      problems.push("sounds");
+    } else {
+      for (const [key, soundPath] of Object.entries(value.sounds)) {
+        if (soundPath !== null && typeof soundPath !== "string") {
+          problems.push(`sounds.${key}`);
+        }
       }
     }
   }

@@ -59,8 +59,42 @@ describe("DEFAULT_CONFIG", () => {
         permission: "需要你的授權，請回來確認。",
         error: "執行發生錯誤，請檢查終端機。",
       },
+      sounds: { done: null, needInput: null, permission: null, error: null },
       notification: { enabled: false },
     });
+  });
+});
+
+describe("config sounds", () => {
+  it("DEFAULT_CONFIG.sounds defaults to all null", () => {
+    expect(DEFAULT_CONFIG.sounds).toEqual({
+      done: null,
+      needInput: null,
+      permission: null,
+      error: null,
+    });
+  });
+
+  it("loads a config that omits sounds (backward compatible)", async () => {
+    await ensureConfigDir(homeDir);
+    const legacy = {
+      engine: "system",
+      voice: DEFAULT_CONFIG.voice,
+      messages: DEFAULT_CONFIG.messages,
+      notification: { enabled: false },
+    };
+    await fs.writeFile(getConfigPath(homeDir), JSON.stringify(legacy), "utf8");
+
+    const loaded = await loadConfig(homeDir);
+    expect(loaded.sounds).toBeUndefined();
+  });
+
+  it("rejects a malformed sounds value", async () => {
+    await ensureConfigDir(homeDir);
+    const bad = { ...DEFAULT_CONFIG, sounds: { done: 123 } };
+    await fs.writeFile(getConfigPath(homeDir), JSON.stringify(bad), "utf8");
+
+    await expect(loadConfig(homeDir)).rejects.toThrow(/sounds/i);
   });
 });
 

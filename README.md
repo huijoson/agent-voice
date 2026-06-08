@@ -87,6 +87,12 @@ contents:
     "permission": "需要你的授權，請回來確認。",
     "error": "執行發生錯誤，請檢查終端機。"
   },
+  "sounds": {
+    "done": null,
+    "needInput": null,
+    "permission": null,
+    "error": null
+  },
   "notification": {
     "enabled": false
   }
@@ -95,6 +101,27 @@ contents:
 
 Edit the `messages` to taste. Set `voice.macos` / `voice.windows` to a specific
 installed voice name (otherwise the system default is used).
+
+### Play a sound file instead of speaking
+
+Set an absolute path in `sounds` for any event to **play that audio file instead
+of speaking** the message for that event. Events left as `null` still use TTS.
+For example, to play a sound when a task finishes:
+
+```json
+"sounds": {
+  "done": "C:\\Users\\you\\Downloads\\dq_level_up.m4a",
+  "needInput": null,
+  "permission": null,
+  "error": null
+}
+```
+
+- macOS plays the file with `afplay`; Windows uses the built-in WPF
+  `MediaPlayer`, which handles `.m4a`, `.mp3`, `.wav`, etc.
+- A configured-but-missing file produces a clear error (it won't fall back to
+  TTS silently).
+- Older config files without a `sounds` key keep working (everything uses TTS).
 
 ## 6. Test the speech
 
@@ -111,6 +138,12 @@ Speak arbitrary text directly (does not use `messages`):
 
 ```bash
 agent-voice say "這是一段測試文字"
+```
+
+Play an audio file directly (does not use config):
+
+```bash
+agent-voice play "C:\Users\you\Downloads\dq_level_up.m4a"
 ```
 
 ### Manual audio smoke test
@@ -146,6 +179,10 @@ This edits your Claude Code settings file (default `~/.claude/settings.json`):
   - `Stop` → `agent-voice speak --event done`
   - `Notification` → `agent-voice speak --event needInput`
 - Running it again is **idempotent** (no duplicate entries).
+
+> **Tip:** to play a sound (e.g. a level-up cue) on completion, you don't need a
+> different hook — keep this `Stop → agent-voice speak --event done` hook and set
+> `sounds.done` to your audio file (see "Play a sound file instead of speaking").
 
 > **Note on the settings location/shape:** Claude Code's settings path and hook
 > schema can vary between versions. agent-voice assumes `~/.claude/settings.json`

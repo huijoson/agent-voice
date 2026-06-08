@@ -7,6 +7,7 @@ import {
   runSpeak,
   runSay,
   runInstall,
+  runPlay,
   buildProgram,
   type CliDeps,
   type CliIO,
@@ -15,7 +16,7 @@ import { DEFAULT_CONFIG, loadConfig, saveConfig, initConfig } from "./config.js"
 import { installClaudeHook } from "./hooks/claude.js";
 import { installCodexHook } from "./hooks/codex.js";
 import { getClaudeSettingsPath } from "./utils/paths.js";
-import type { Config, Speaker, VoiceConfig } from "./types.js";
+import type { Config, Player, Speaker, VoiceConfig } from "./types.js";
 
 let tmpHome: string;
 
@@ -37,6 +38,12 @@ function makeHarness(homeDir: string, overrides: Partial<CliDeps> = {}) {
       speakerCalls.push({ text, voice });
     },
   };
+  const playerCalls: string[] = [];
+  const player: Player = {
+    play: async (filePath) => {
+      playerCalls.push(filePath);
+    },
+  };
   const io: CliIO = {
     log: (m) => logs.push(m),
     error: (m) => errors.push(m),
@@ -48,6 +55,7 @@ function makeHarness(homeDir: string, overrides: Partial<CliDeps> = {}) {
     initConfig,
     loadConfig,
     getSpeaker: () => speaker,
+    getPlayer: () => player,
     installClaudeHook,
     installCodexHook,
     defaultVoice: DEFAULT_CONFIG.voice,
@@ -58,6 +66,7 @@ function makeHarness(homeDir: string, overrides: Partial<CliDeps> = {}) {
     logs,
     errors,
     speakerCalls,
+    playerCalls,
     setConfirm: (v: boolean) => {
       confirmResponse = v;
     },
@@ -204,6 +213,83 @@ describe("runSay", () => {
     expect(code).not.toBe(0);
     expect(h.errors.length).toBeGreaterThan(0);
     expect(h.speakerCalls).toHaveLength(0);
+  });
+});
+
+describe("runSpeak with sounds", () => {
+  it("plays the configured sound instead of speaking", async () => {
+    const soundPath = path.join(tmpHome, "cue.m4a");
+    await fs.writeFile(soundPath, "fake-audio");
+    const cfg: Config = {
+      ...DEFAULT_CONFIG,
+      sounds: { ...DEFAULT_CONFIG.sounds!, done: soundPath },
+    };
+    await saveConfig(cfg, tmpHome);
+
+    const h = makeHarness(tmpHome);
+    const code = await runSpeak({ event: "done" }, h.deps);
+
+    expect(code).toBe(0);
+    expect(h.playerCalls).toEqual([soundPath]);
+    expect(h.speakerCalls).toHaveLength(0);
+  });
+
+  it("falls back to TTS when no sound is configured", async () => {
+    await saveConfig(DEFAULT_CONFIG, tmpHome); // sounds all null
+    const h = makeHarness(tmpHome);
+
+    const code = await runSpeak({ event: "done" }, h.deps);
+
+    expect(code).toBe(0);
+    expect(h.playerCalls).toHaveLength(0);
+    expect(h.speakerCalls[0].text).toBe(DEFAULT_CONFIG.messages.done);
+  });
+
+  it("errors when the configured sound file is missing", async () => {
+    const missing = path.join(tmpHome, "does-not-exist.m4a");
+    const cfg: Config = {
+      ...DEFAULT_CONFIG,
+      sounds: { ...DEFAULT_CONFIG.sounds!, done: missing },
+    };
+    await saveConfig(cfg, tmpHome);
+
+    const h = makeHarness(tmpHome);
+    const code = await runSpeak({ event: "done" }, h.deps);
+
+    expect(code).not.toBe(0);
+    expect(h.errors.join("\n")).toContain(missing);
+    expect(h.playerCalls).toHaveLength(0);
+    expect(h.speakerCalls).toHaveLength(0);
+  });
+});
+
+describe("runPlay", () => {
+  it("plays an existing file via the player", async () => {
+    const soundPath = path.join(tmpHome, "cue.m4a");
+    await fs.writeFile(soundPath, "fake-audio");
+    const h = makeHarness(tmpHome);
+
+    const code = await runPlay(soundPath, h.deps);
+
+    expect(code).toBe(0);
+    expect(h.playerCalls).toEqual([soundPath]);
+  });
+
+  it("errors on an empty file argument", async () => {
+    const h = makeHarness(tmpHome);
+    const code = await runPlay("", h.deps);
+    expect(code).not.toBe(0);
+    expect(h.errors.length).toBeGreaterThan(0);
+    expect(h.playerCalls).toHaveLength(0);
+  });
+
+  it("errors on a nonexistent file", async () => {
+    const missing = path.join(tmpHome, "nope.m4a");
+    const h = makeHarness(tmpHome);
+    const code = await runPlay(missing, h.deps);
+    expect(code).not.toBe(0);
+    expect(h.errors.join("\n")).toContain(missing);
+    expect(h.playerCalls).toHaveLength(0);
   });
 });
 

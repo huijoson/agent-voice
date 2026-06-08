@@ -8,9 +8,11 @@
  * handlers to commander; `index.ts` supplies the real dependencies.
  */
 
+import fs from "node:fs/promises";
 import { Command } from "commander";
 import { DEFAULT_CONFIG, initConfig, loadConfig } from "./config.js";
 import { getSpeaker } from "./speaker/index.js";
+import { getPlayer } from "./player/index.js";
 import { installClaudeHook } from "./hooks/claude.js";
 import { installCodexHook } from "./hooks/codex.js";
 import type { Config, EventName, VoiceConfig } from "./types.js";
@@ -30,6 +32,7 @@ export interface CliDeps {
   initConfig: typeof initConfig;
   loadConfig: typeof loadConfig;
   getSpeaker: typeof getSpeaker;
+  getPlayer: typeof getPlayer;
   installClaudeHook: typeof installClaudeHook;
   installCodexHook: typeof installCodexHook;
   /** Voice settings used by `say` when no config file exists. */
@@ -40,6 +43,16 @@ const VALID_EVENTS: EventName[] = ["done", "needInput", "permission", "error"];
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** Whether a file exists at `filePath`. */
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** `agent-voice init` — create the config file (prompting before overwrite). */
@@ -99,6 +112,22 @@ export async function runSpeak(
     return 1;
   }
 
+  // Sound takes precedence over TTS: if this event has a sound file, play it.
+  const soundPath = config.sounds?.[event] ?? null;
+  if (soundPath) {
+    if (!(await pathExists(soundPath))) {
+      io.error(`Sound file for "${event}" not found: ${soundPath}`);
+      return 1;
+    }
+    try {
+      await deps.getPlayer().play(soundPath);
+      return 0;
+    } catch (err) {
+      io.error(messageOf(err));
+      return 1;
+    }
+  }
+
   // Defense in depth: loadConfig validates structure, but guard the lookup so a
   // missing message can never reach the speaker as `undefined`.
   const text = config.messages[event];
@@ -141,6 +170,31 @@ export async function runSay(
 
   try {
     await deps.getSpeaker().speak(text, voice);
+    return 0;
+  } catch (err) {
+    io.error(messageOf(err));
+    return 1;
+  }
+}
+
+/** `agent-voice play "<file>"` — play an arbitrary audio file directly. */
+export async function runPlay(
+  filePath: string | undefined,
+  deps: CliDeps,
+): Promise<number> {
+  const { io } = deps;
+
+  if (!filePath || filePath.trim() === "") {
+    io.error('No file provided. Usage: agent-voice play "<file>".');
+    return 1;
+  }
+  if (!(await pathExists(filePath))) {
+    io.error(`Audio file not found: ${filePath}`);
+    return 1;
+  }
+
+  try {
+    await deps.getPlayer().play(filePath);
     return 0;
   } catch (err) {
     io.error(messageOf(err));
@@ -217,6 +271,14 @@ export function buildProgram(deps: CliDeps): Command {
     .action(async (parts: string[]) => {
       const text = parts.join(" ");
       process.exitCode = await runSay(text, deps);
+    });
+
+  program
+    .command("play")
+    .description("Play an audio file directly")
+    .argument("[file]", "path to the audio file")
+    .action(async (file: string | undefined) => {
+      process.exitCode = await runPlay(file, deps);
     });
 
   program

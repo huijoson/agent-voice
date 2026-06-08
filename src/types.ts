@@ -28,6 +28,12 @@ export interface Messages {
 /** Event names map 1:1 to message keys. */
 export type EventName = keyof Messages;
 
+/**
+ * Optional per-event audio files. When an event's value is a non-empty path, it
+ * is played instead of speaking the TTS message; `null` means "use TTS".
+ */
+export type SoundConfig = { [K in EventName]: string | null };
+
 /** Reserved for a future OS desktop-notification feature (disabled in v1). */
 export interface NotificationConfig {
   enabled: boolean;
@@ -39,6 +45,11 @@ export interface Config {
   engine: string;
   voice: VoiceConfig;
   messages: Messages;
+  /**
+   * Optional per-event sound files. Omitted in pre-sound-playback configs, in
+   * which case every event uses TTS.
+   */
+  sounds?: SoundConfig;
   notification: NotificationConfig;
 }
 
@@ -61,4 +72,10 @@ export type CommandRunner = (command: string, args: string[]) => Promise<RunResu
 export interface Speaker {
   /** Speak `text` using the given voice settings. */
   speak(text: string, voice: VoiceConfig): Promise<void>;
+}
+
+/** A platform-specific audio-file player. */
+export interface Player {
+  /** Play the audio file at `filePath`, resolving when playback completes. */
+  play(filePath: string): Promise<void>;
 }
