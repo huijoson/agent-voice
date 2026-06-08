@@ -40,5 +40,6 @@
       (both flagged Windows Start-Sleep -Seconds truncation -> fixed to ms + buffer;
       also: fail on unknown duration, path.resolve for cross-platform, -STA test)
 - [x] 5.3 `openspec validate add-sound-playback --strict` passes
-- [ ] 5.4 Manual real-audio test: set `sounds.done` to the m4a and play it on
+- [x] 5.4 Manual real-audio test: set `sounds.done` to the m4a and play it on
       Windows (after asking the user) — not run in CI
+      (`agent-voice speak --event done` exited 0 with the m4a configured)
