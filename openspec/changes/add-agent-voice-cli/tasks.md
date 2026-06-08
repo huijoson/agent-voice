@@ -6,20 +6,21 @@
       devDeps typescript, tsx, @types/node, vitest, @vitest/coverage-v8)
 - [x] 1.3 Add `tsconfig.json` (strict, ES2022, NodeNext, outDir dist, rootDir src,
       excludes tests) and `vitest.config.ts` and `.gitignore`
-- [ ] 1.4 `npm install` and confirm `vitest` runs (empty pass) and `tsc --noEmit`
+- [x] 1.4 `npm install` and confirm `vitest` runs (empty pass) and `tsc --noEmit`
       succeeds on an empty `src`
 
 ## 2. Foundation (test-first)
 
-- [ ] 2.1 RED/GREEN `utils/platform.ts`: `getPlatform()` / platform predicates;
+- [x] 2.1 RED/GREEN `utils/platform.ts`: `getPlatform()` / platform predicates;
       tests cover darwin/win32/other mapping
-- [ ] 2.2 RED/GREEN `utils/shell.ts`: `escapePowerShellSingleQuoted(text)`; tests
+- [x] 2.2 RED/GREEN `utils/shell.ts`: `escapePowerShellSingleQuoted(text)`; tests
       cover apostrophe doubling, injection payloads, newlines/`$`/backtick/`"`
-- [ ] 2.3 RED/GREEN `utils/paths.ts`: `getHomeDir()`, `getConfigDir()`,
+      (also `defaultRunner` spawn wrapper, spawn mocked)
+- [x] 2.3 RED/GREEN `utils/paths.ts`: `getHomeDir()`, `getConfigDir()`,
       `getConfigPath()`, Claude settings path; tests assert `.agent-voice/config.json`
       and `.claude/settings.json` resolution with an injectable home dir
-- [ ] 2.4 `types.ts`: `Config`, `VoiceConfig`, `Messages`, `EventName`,
-      `SpeakOptions`, `CommandRunner` interfaces (type-only; verified via typecheck)
+- [x] 2.4 `types.ts`: `Config`, `VoiceConfig`, `Messages`, `EventName`,
+      `CommandRunner`, `Speaker` interfaces (type-only; verified via typecheck)
 
 ## 3. Config module (test-first)
 
