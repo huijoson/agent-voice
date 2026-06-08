@@ -20,7 +20,7 @@ were fixed; LOW was documented as a follow-up.
 | A | `config.ts` `assertValidConfig` | `voice.rate`/`voice.volume` not validated as numbers; `voice.macos`/`voice.windows` not validated as `string\|null`. A non-numeric rate flows through `mapRateToSapi` as `NaN` → `$speak.Rate = NaN;` → invalid PowerShell → **speech silently dies**. | HIGH | **Fixed** |
 | B | `speaker/macos.ts` `buildSayArgs` | A message that *starts with* `-` is parsed by `say` as a flag instead of spoken. | MEDIUM | **Fixed** |
 | C | `player/windows.ts` `buildPlayerScript` | A corrupt / non-audio file made the player spin for the full **10 s** duration-probe timeout before failing. | MEDIUM | **Fixed** |
-| D | `cli.ts` `runInstall` (codex) | Reports success (`exit 0`) although `installCodexHook` returns `{ implemented: false }`. | LOW | **Deferred** (task 5.1) |
+| D | `cli.ts` `runInstall` (codex) | Reports success (`exit 0`) although `installCodexHook` returns `{ implemented: false }`. | LOW | **Fixed** (follow-up, exit code `2`) |
 
 ## 3. Fixes
 
@@ -48,11 +48,17 @@ dash-leading message is spoken literally.
    *Lesson:* asserting on generated script **text** can pass while the runtime
    behavior is unchanged — the manual smoke test is what caught it.
 
+**D — Codex install exit code (follow-up, now fixed).** `runInstall` returned the
+not-yet-implemented Codex stub as `exit 0`. It now returns `result.implemented ?
+0 : 2`, so the preview stub exits with a distinct code `2` ("recognized target,
+not implemented") rather than masquerading as a successful install; `1` stays
+reserved for hard errors. Documented in the README.
+
 ## 4. Verification
 
 | Check | Result |
 |-------|--------|
-| `npm test` | **124 passed** (15 files); was 115 before — **+9** new tests (3 risks) |
+| `npm test` | **125 passed** (15 files); was 115 before — **+10** new tests (Risk D updated an existing case rather than adding one) |
 | `npm run typecheck` | clean (no errors) |
 | `npm run build` | clean |
 | Windows fail-fast smoke (corrupt `.m4a`) | **~1.3 s**, `exit 1`, "media failed to load" (was ~10.9 s) |
@@ -71,6 +77,5 @@ dash-leading message is spoken literally.
 
 ## 6. Follow-ups
 
-- **Risk D (task 5.1):** decide whether `runInstall` should return a non-zero or
-  distinct "preview" exit code for the Codex target until it is implemented.
-- Re-run the macOS and interactive-Windows manual smoke tests before release.
+- Re-run the macOS (`say -- "-test"`) and interactive-Windows (valid-file audible
+  playback) manual smoke tests before release.

@@ -24,6 +24,6 @@
 - [x] 4.3 `npm run build` — compiles cleanly
 - [x] 4.4 Manual smoke notes recorded in the result report. Windows fail-fast: corrupt file rejected in ~1.3s (was ~10.9s before the dispatcher-pump fix). macOS `say --` and valid-file audible playback: NOT run in this non-interactive session (no macOS; the headless Windows session cannot access the audio render endpoint) — see report limitations.
 
-## 5. Follow-ups (deferred, not implemented here)
+## 5. Risk D — Codex install exit code (LOW)
 
-- [ ] 5.1 Document Risk D (LOW): `runInstall` reports success for the Codex target while `installCodexHook` returns `{ implemented: false }` — decide whether to surface a non-zero/"preview" exit code when Codex support lands
+- [x] 5.1 `runInstall` no longer reports success for the not-yet-implemented Codex target: it now returns the result's `implemented` flag as a distinct preview exit code `2` (vs `1` for hard errors), still printing the friendly message. Covered by an updated `cli.test.ts` case and documented in the README.

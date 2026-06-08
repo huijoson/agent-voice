@@ -196,8 +196,11 @@ This edits your Claude Code settings file (default `~/.claude/settings.json`):
 agent-voice install --target codex
 ```
 
-Prints **"Codex hook install is not fully implemented yet"** — the installer
-interface is in place (`src/hooks/codex.ts`) and reserved for a future release.
+Prints **"Codex hook install is not fully implemented yet"** and exits with code
+**2** (a distinct "recognized target, not implemented yet" code, separate from
+`1` for real errors such as an unknown target) — so automation never mistakes the
+preview stub for a successful install. The installer interface is in place
+(`src/hooks/codex.ts`) and reserved for a future release.
 
 ## 8. Platform notes & limitations
 

@@ -227,8 +227,13 @@ export async function runInstall(
       }
     case "codex":
       try {
-        await deps.installCodexHook({ log: io.log });
-        return 0;
+        const result = await deps.installCodexHook({ log: io.log });
+        // Codex support is a preview stub: nothing is installed yet. Reporting
+        // success (0) would let automation assume the hook is active, so signal
+        // a distinct "not implemented" code (2) — separate from a hard failure
+        // (1). Once Codex install lands and reports `implemented: true`, this
+        // returns 0 like the Claude path.
+        return result.implemented ? 0 : 2;
       } catch (err) {
         io.error(messageOf(err));
         return 1;

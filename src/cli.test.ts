@@ -306,12 +306,15 @@ describe("runInstall", () => {
     expect(JSON.stringify(settings)).toContain("agent-voice speak --event done");
   });
 
-  it("runs the Codex stub and reports it is not implemented", async () => {
+  it("runs the Codex stub, reports not-implemented, and exits with the preview code 2", async () => {
     const h = makeHarness(tmpHome);
 
     const code = await runInstall({ target: "codex" }, h.deps);
 
-    expect(code).toBe(0);
+    // Nothing was installed, so this must NOT report success (0); a distinct
+    // code (2) lets automation tell "not implemented yet" apart from a hard
+    // failure (1, e.g. unknown target or a Claude install error).
+    expect(code).toBe(2);
     expect(h.logs.join("\n")).toMatch(/not fully implemented yet/i);
   });
 
