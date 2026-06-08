@@ -1,0 +1,44 @@
+{
+  "name": "agent-voice",
+  "version": "0.1.0",
+  "description": "Cross-platform CLI that speaks customizable prompts so AI coding agents (Claude Code, Codex CLI, etc.) can notify you by voice when a task finishes, needs input, needs authorization, or errors.",
+  "type": "module",
+  "bin": {
+    "agent-voice": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "tts",
+    "cli",
+    "claude-code",
+    "codex",
+    "agent",
+    "voice",
+    "notification"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
